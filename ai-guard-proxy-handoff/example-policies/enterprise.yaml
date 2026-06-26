@@ -1,0 +1,68 @@
+name: enterprise_default
+description: Enterprise-oriented policy focused on data leakage and prompt injection.
+mode: fail_closed
+
+defaults:
+  classifier_timeout_ms: 750
+  log_prompts: false
+  canned_response: "I can't help with that request."
+
+stages:
+  input:
+    enabled_classifiers:
+      - terms
+      - regex
+      - secrets
+      - prompt_injection
+      - url_obfuscation
+  output:
+    enabled_classifiers:
+      - terms
+      - regex
+      - secrets
+      - prompt_injection
+
+actions:
+  critical: block
+  high: block
+  medium: warn
+  low: log
+
+categories:
+  prompt_injection:
+    min_action: block
+  data_exfiltration:
+    min_action: block
+  secret_leak:
+    min_action: block
+  source_code_leak:
+    min_action: block
+  confidential_data:
+    min_action: block
+  credential_theft:
+    min_action: block
+
+terms:
+  block:
+    - "example internal project codename"
+    - "example customer database name"
+  warn:
+    - "confidential"
+    - "internal only"
+
+regex:
+  block:
+    - name: private_key_header
+      pattern: "-----BEGIN (RSA|OPENSSH|EC|DSA)? ?PRIVATE KEY-----"
+      category: secret_leak
+      severity: critical
+    - name: bearer_token
+      pattern: "\\bBearer\\s+[A-Za-z0-9._\\-]{20,}\\b"
+      category: secret_leak
+      severity: high
+  warn:
+    - name: env_assignment
+      pattern: "\\b[A-Z0-9_]*(KEY|TOKEN|SECRET|PASSWORD)\\s*=\\s*[^\\s]+"
+      category: secret_leak
+      severity: medium
+

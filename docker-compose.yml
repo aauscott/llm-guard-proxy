@@ -1,0 +1,27 @@
+services:
+  ai-guard-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      GUARD_POLICY_PATH: /app/policies/permissive.yaml
+      OLLAMA_BASE_URL: http://ollama:11434
+      GUARD_CLASSIFIER_TIMEOUT_MS: "750"
+      GUARD_LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles:
+      - ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+
+volumes:
+  ollama-data:

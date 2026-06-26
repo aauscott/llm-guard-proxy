@@ -1,0 +1,46 @@
+name: permissive
+description: Low-friction local development policy.
+mode: fail_open
+
+defaults:
+  classifier_timeout_ms: 750
+  log_prompts: false
+  canned_response: "I can't help with that request."
+
+stages:
+  input:
+    enabled_classifiers:
+      - terms
+      - regex
+      - secrets
+      - prompt_injection
+  output:
+    enabled_classifiers:
+      - terms
+      - regex
+      - secrets
+
+actions:
+  critical: block
+  high: warn
+  medium: log
+  low: log
+
+categories:
+  secret_leak:
+    min_action: block
+  prompt_injection:
+    min_action: warn
+
+terms:
+  block: []
+  warn: []
+
+regex:
+  block:
+    - name: private_key_header
+      pattern: "-----BEGIN (RSA|OPENSSH|EC|DSA)? ?PRIVATE KEY-----"
+      category: secret_leak
+      severity: critical
+  warn: []
+

@@ -1,0 +1,76 @@
+name: coding_agent_default
+description: Policy for coding agents using the proxy as an OpenAI-compatible backend.
+mode: fail_closed
+
+defaults:
+  classifier_timeout_ms: 750
+  log_prompts: false
+  canned_response: "I can't help with that request."
+
+stages:
+  input:
+    enabled_classifiers:
+      - terms
+      - regex
+      - secrets
+      - prompt_injection
+      - url_obfuscation
+  output:
+    enabled_classifiers:
+      - terms
+      - regex
+      - secrets
+      - prompt_injection
+  tool:
+    enabled_classifiers:
+      - regex
+      - secrets
+
+actions:
+  critical: block
+  high: block
+  medium: warn
+  low: log
+
+categories:
+  prompt_injection:
+    min_action: block
+  secret_leak:
+    min_action: block
+  unsafe_shell_command:
+    min_action: block
+  destructive_file_operation:
+    min_action: block
+  data_exfiltration:
+    min_action: block
+  indirect_prompt_injection:
+    min_action: warn
+
+terms:
+  block:
+    - "ignore previous instructions"
+    - "reveal the system prompt"
+  warn:
+    - "developer mode"
+    - "bypass policy"
+
+regex:
+  block:
+    - name: private_key_header
+      pattern: "-----BEGIN (RSA|OPENSSH|EC|DSA)? ?PRIVATE KEY-----"
+      category: secret_leak
+      severity: critical
+    - name: destructive_rm
+      pattern: "\\brm\\s+-rf\\s+(/|~|\\$HOME)\\b"
+      category: destructive_file_operation
+      severity: critical
+    - name: curl_pipe_shell
+      pattern: "\\b(curl|wget)\\b.*\\|\\s*(sh|bash)\\b"
+      category: unsafe_shell_command
+      severity: high
+  warn:
+    - name: env_assignment
+      pattern: "\\b[A-Z0-9_]*(KEY|TOKEN|SECRET|PASSWORD)\\s*=\\s*[^\\s]+"
+      category: secret_leak
+      severity: medium
+

@@ -1,0 +1,33 @@
+from functools import lru_cache
+
+from pydantic import AliasChoices, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    policy_path: str = Field(
+        default="policies/permissive.yaml",
+        validation_alias=AliasChoices("GUARD_POLICY_PATH", "policy_path"),
+    )
+    ollama_base_url: str = Field(
+        default="http://localhost:11434",
+        validation_alias=AliasChoices("OLLAMA_BASE_URL", "GUARD_OLLAMA_BASE_URL", "ollama_base_url"),
+    )
+    classifier_timeout_ms: int = Field(
+        default=750,
+        validation_alias=AliasChoices("GUARD_CLASSIFIER_TIMEOUT_MS", "classifier_timeout_ms"),
+    )
+    log_level: str = Field(
+        default="INFO",
+        validation_alias=AliasChoices("GUARD_LOG_LEVEL", "log_level"),
+    )
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+    )
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
