@@ -11,7 +11,7 @@ Mode = Literal["fail_open", "fail_closed"]
 class PolicyDefaults(BaseModel):
     classifier_timeout_ms: int = Field(default=750, gt=0)
     log_prompts: bool = False
-    canned_response: str = "I can't help with that request."
+    canned_response: str = "I can't help with that request. I ignored that message, so you can continue with a different question."
 
 
 class StageConfig(BaseModel):

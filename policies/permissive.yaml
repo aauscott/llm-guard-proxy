@@ -5,7 +5,7 @@ mode: fail_open
 defaults:
   classifier_timeout_ms: 750
   log_prompts: false
-  canned_response: "I can't help with that request."
+  canned_response: "I can't help with that request. I ignored that message, so you can continue with a different question."
 
 stages:
   input:
@@ -43,4 +43,3 @@ regex:
       category: secret_leak
       severity: critical
   warn: []
-

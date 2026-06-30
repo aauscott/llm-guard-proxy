@@ -33,14 +33,17 @@ http://ollama:11434
 For each `/v1/chat/completions` request, the proxy:
 
 1. Loads the configured YAML policy.
-2. Combines the user messages into input text.
-3. Runs enabled input classifiers.
+2. Extracts the latest user turn for input inspection.
+3. Runs enabled input classifiers on that latest user turn.
 4. Blocks immediately if policy requires it.
-5. Sends allowed requests to Ollama.
-6. Inspects the assistant output.
-7. Returns either the model response or the policy canned response.
+5. Removes prior guard-blocked turn pairs from the forwarded message history.
+6. Sends allowed requests to Ollama.
+7. Inspects the assistant output.
+8. Returns either the model response or the policy canned response.
 
 Structured audit logs are written to the proxy logs for both input and output guard stages.
+
+This per-turn behavior keeps a blocked prompt from poisoning the rest of the chat. If a UI resends the full conversation history, the proxy recognizes earlier user messages followed by the guard canned response and treats those pairs as if that turn never reached the model.
 
 ## Current Scope
 
@@ -219,7 +222,7 @@ curl -s http://localhost:8000/v1/chat/completions \
 Expected blocked response:
 
 ```text
-I can't help with that request.
+I can't help with that request. I ignored that message, so you can continue with a different question.
 ```
 
 Prompt-injection test:
