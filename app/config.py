@@ -13,6 +13,10 @@ class Settings(BaseSettings):
         default="http://localhost:11434",
         validation_alias=AliasChoices("OLLAMA_BASE_URL", "GUARD_OLLAMA_BASE_URL", "ollama_base_url"),
     )
+    upstream_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GUARD_UPSTREAM_API_KEY", "OPENAI_API_KEY", "upstream_api_key"),
+    )
     classifier_timeout_ms: int = Field(
         default=750,
         validation_alias=AliasChoices("GUARD_CLASSIFIER_TIMEOUT_MS", "classifier_timeout_ms"),

@@ -6,7 +6,13 @@ This is an experimental guardrail project, not a safety guarantee. Treat it as a
 
 ## How It Works
 
-The normal Docker path is:
+The normal Docker path for OpenAI-backed usage is:
+
+```text
+Open WebUI -> ai-guard-proxy -> OpenAI
+```
+
+The local Ollama path is also supported:
 
 ```text
 Open WebUI -> ai-guard-proxy -> Ollama -> local model
@@ -24,7 +30,13 @@ Inside Docker Compose, Open WebUI should call the proxy at:
 http://ai-guard-proxy:8000/v1
 ```
 
-The proxy then forwards allowed requests to Ollama at:
+For OpenAI-backed usage, the proxy then forwards allowed requests to:
+
+```text
+https://api.openai.com
+```
+
+For local Ollama usage, the proxy forwards allowed requests to:
 
 ```text
 http://ollama:11434
@@ -91,7 +103,13 @@ From the project directory:
 cd /Users/aascott/security-layer
 ```
 
-Start the proxy and Docker-managed Ollama:
+Start the proxy backed by OpenAI:
+
+```bash
+OPENAI_API_KEY=sk-... docker compose up -d ai-guard-proxy
+```
+
+Start the proxy and Docker-managed Ollama instead:
 
 ```bash
 docker compose --profile ollama up -d
@@ -281,7 +299,8 @@ Docker Compose currently sets:
 
 ```text
 GUARD_POLICY_PATH=/app/policies/permissive.yaml
-OLLAMA_BASE_URL=http://ollama:11434
+OLLAMA_BASE_URL=https://api.openai.com
+GUARD_UPSTREAM_API_KEY=${OPENAI_API_KEY}
 GUARD_CLASSIFIER_TIMEOUT_MS=750
 GUARD_LOG_LEVEL=INFO
 ```
@@ -290,7 +309,8 @@ For local, non-Docker development, typical values are:
 
 ```text
 GUARD_POLICY_PATH=policies/permissive.yaml
-OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_BASE_URL=https://api.openai.com
+GUARD_UPSTREAM_API_KEY=sk-...
 GUARD_CLASSIFIER_TIMEOUT_MS=750
 GUARD_LOG_LEVEL=INFO
 ```
@@ -298,10 +318,13 @@ GUARD_LOG_LEVEL=INFO
 Run the proxy locally:
 
 ```bash
-OLLAMA_BASE_URL=http://localhost:11434 \
+OLLAMA_BASE_URL=https://api.openai.com \
+GUARD_UPSTREAM_API_KEY=sk-... \
 GUARD_POLICY_PATH=policies/permissive.yaml \
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+To use local Ollama instead, set `OLLAMA_BASE_URL=http://localhost:11434` locally or `OLLAMA_BASE_URL=http://ollama:11434` in Docker Compose, and leave `GUARD_UPSTREAM_API_KEY` unset.
 
 ## Policy Packs
 
