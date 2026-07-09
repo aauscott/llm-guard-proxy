@@ -1,5 +1,5 @@
 services:
-  ai-guard-proxy:
+  llm-guard-proxy:
     build:
       context: .
       dockerfile: Dockerfile

@@ -6,7 +6,7 @@ from app.guards.pipeline import GuardResult
 from app.policy.schema import Policy
 
 
-logger = logging.getLogger("ai_guard_proxy.audit")
+logger = logging.getLogger("llm_guard_proxy.audit")
 
 
 def configure_logging(level: str) -> None:

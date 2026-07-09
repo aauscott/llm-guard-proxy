@@ -1,6 +1,6 @@
-# ai-guard-proxy
+# llm-guard-proxy
 
-`ai-guard-proxy` is a local-first, OpenAI-compatible security proxy for LLM chat apps and coding agents. It sits between a client such as Open WebUI and an Ollama-compatible model backend, inspects input and output with policy-driven classifiers, and returns a canned assistant response when policy says a request or response should be blocked.
+`llm-guard-proxy` is a local-first, OpenAI-compatible security proxy for LLM chat apps and coding agents. It sits between a client such as Open WebUI and an Ollama-compatible model backend, inspects input and output with policy-driven classifiers, and returns a canned assistant response when policy says a request or response should be blocked.
 
 This is an experimental guardrail project, not a safety guarantee. Treat it as a development and evaluation layer that helps test local policies before relying on them in a real environment.
 
@@ -9,13 +9,13 @@ This is an experimental guardrail project, not a safety guarantee. Treat it as a
 The normal Docker path for OpenAI-backed usage is:
 
 ```text
-Open WebUI -> ai-guard-proxy -> OpenAI
+Open WebUI -> llm-guard-proxy -> OpenAI
 ```
 
 The local Ollama path is also supported:
 
 ```text
-Open WebUI -> ai-guard-proxy -> Ollama -> local model
+Open WebUI -> llm-guard-proxy -> Ollama -> local model
 ```
 
 The proxy exposes an OpenAI-compatible API:
@@ -27,7 +27,7 @@ http://localhost:8000/v1
 Inside Docker Compose, Open WebUI should call the proxy at:
 
 ```text
-http://ai-guard-proxy:8000/v1
+http://llm-guard-proxy:8000/v1
 ```
 
 For OpenAI-backed usage, the proxy then forwards allowed requests to:
@@ -106,7 +106,7 @@ cd /Users/aascott/security-layer
 Start the proxy backed by OpenAI:
 
 ```bash
-OPENAI_API_KEY=sk-... docker compose up -d ai-guard-proxy
+OPENAI_API_KEY=sk-... docker compose up -d llm-guard-proxy
 ```
 
 Start the proxy and Docker-managed Ollama instead:
@@ -131,7 +131,7 @@ docker compose --profile ollama down
 Restart only the proxy after code changes:
 
 ```bash
-docker compose restart ai-guard-proxy
+docker compose restart llm-guard-proxy
 ```
 
 ## Run Open WebUI
@@ -151,7 +151,7 @@ http://localhost:3000
 In Open WebUI, add an OpenAI-compatible external connection:
 
 ```text
-URL: http://ai-guard-proxy:8000/v1
+URL: http://llm-guard-proxy:8000/v1
 Provider Type: OpenAI
 Auth: Bearer token can be any placeholder value for local development
 ```
@@ -266,13 +266,13 @@ With the default permissive policy, prompt-injection findings are warned/logged,
 Show proxy logs:
 
 ```bash
-docker compose logs ai-guard-proxy
+docker compose logs llm-guard-proxy
 ```
 
 Follow proxy logs:
 
 ```bash
-docker compose logs -f ai-guard-proxy
+docker compose logs -f llm-guard-proxy
 ```
 
 Show Ollama logs:
@@ -349,19 +349,19 @@ Important default behavior:
 Run tests in Docker:
 
 ```bash
-docker compose run --rm ai-guard-proxy pytest
+docker compose run --rm llm-guard-proxy pytest
 ```
 
 Run a specific test file:
 
 ```bash
-docker compose run --rm ai-guard-proxy pytest tests/test_chat_completions.py
+docker compose run --rm llm-guard-proxy pytest tests/test_chat_completions.py
 ```
 
 If dependencies are missing inside the dev container:
 
 ```bash
-docker compose run --rm ai-guard-proxy pip install -e ".[dev]"
+docker compose run --rm llm-guard-proxy pip install -e ".[dev]"
 ```
 
 ## Troubleshooting

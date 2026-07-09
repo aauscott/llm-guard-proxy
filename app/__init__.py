@@ -1,1 +1,1 @@
-"""AI Guard Proxy application package."""
+"""LLM Guard Proxy application package."""
