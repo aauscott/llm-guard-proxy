@@ -9,9 +9,16 @@ class Settings(BaseSettings):
         default="policies/permissive.yaml",
         validation_alias=AliasChoices("GUARD_POLICY_PATH", "policy_path"),
     )
-    ollama_base_url: str = Field(
+    upstream_base_url: str = Field(
         default="http://localhost:11434",
-        validation_alias=AliasChoices("OLLAMA_BASE_URL", "GUARD_OLLAMA_BASE_URL", "ollama_base_url"),
+        validation_alias=AliasChoices(
+            "GUARD_UPSTREAM_BASE_URL",
+            "UPSTREAM_BASE_URL",
+            "OLLAMA_BASE_URL",
+            "GUARD_OLLAMA_BASE_URL",
+            "upstream_base_url",
+            "ollama_base_url",
+        ),
     )
     upstream_api_key: str | None = Field(
         default=None,

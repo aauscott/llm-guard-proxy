@@ -12,11 +12,11 @@ def client(monkeypatch) -> TestClient:
     return TestClient(create_app())
 
 
-def test_blocked_input_does_not_call_ollama(client: TestClient, monkeypatch) -> None:
+def test_blocked_input_does_not_call_upstream(client: TestClient, monkeypatch) -> None:
     async def fail_if_called(self, body):
-        raise AssertionError("Ollama should not be called")
+        raise AssertionError("Upstream should not be called")
 
-    monkeypatch.setattr("app.clients.ollama.OllamaClient.chat_completions", fail_if_called)
+    monkeypatch.setattr("app.clients.upstream.OpenAICompatibleClient.chat_completions", fail_if_called)
 
     response = client.post("/v1/chat/completions", json={
         "model": "llama3.1:8b",
@@ -29,7 +29,7 @@ def test_blocked_input_does_not_call_ollama(client: TestClient, monkeypatch) -> 
     assert body["id"].startswith("guard-blocked-")
 
 
-def test_clean_request_reaches_mocked_ollama(client: TestClient, monkeypatch) -> None:
+def test_clean_request_reaches_mocked_upstream(client: TestClient, monkeypatch) -> None:
     async def mock_chat(self, body):
         return {
             "id": "chatcmpl-test",
@@ -43,7 +43,7 @@ def test_clean_request_reaches_mocked_ollama(client: TestClient, monkeypatch) ->
             }],
         }
 
-    monkeypatch.setattr("app.clients.ollama.OllamaClient.chat_completions", mock_chat)
+    monkeypatch.setattr("app.clients.upstream.OpenAICompatibleClient.chat_completions", mock_chat)
 
     response = client.post("/v1/chat/completions", json={
         "model": "llama3.1:8b",
@@ -74,7 +74,7 @@ def test_prior_blocked_turn_does_not_poison_later_clean_request(client: TestClie
             }],
         }
 
-    monkeypatch.setattr("app.clients.ollama.OllamaClient.chat_completions", mock_chat)
+    monkeypatch.setattr("app.clients.upstream.OpenAICompatibleClient.chat_completions", mock_chat)
 
     response = client.post("/v1/chat/completions", json={
         "model": "llama3.1:8b",
@@ -104,7 +104,7 @@ def test_blocked_output_returns_canned_response(client: TestClient, monkeypatch)
             }],
         }
 
-    monkeypatch.setattr("app.clients.ollama.OllamaClient.chat_completions", mock_chat)
+    monkeypatch.setattr("app.clients.upstream.OpenAICompatibleClient.chat_completions", mock_chat)
 
     response = client.post("/v1/chat/completions", json={
         "model": "llama3.1:8b",
@@ -128,7 +128,7 @@ def test_streaming_clean_request_replays_backend_chunks(client: TestClient, monk
             "data: [DONE]\n\n",
         ]
 
-    monkeypatch.setattr("app.clients.ollama.OllamaClient.stream_chat_completions", mock_stream)
+    monkeypatch.setattr("app.clients.upstream.OpenAICompatibleClient.stream_chat_completions", mock_stream)
 
     response = client.post("/v1/chat/completions", json={
         "model": "llama3.1:8b",
@@ -152,7 +152,7 @@ def test_streaming_blocked_output_returns_canned_response(client: TestClient, mo
             "data: [DONE]\n\n",
         ]
 
-    monkeypatch.setattr("app.clients.ollama.OllamaClient.stream_chat_completions", mock_stream)
+    monkeypatch.setattr("app.clients.upstream.OpenAICompatibleClient.stream_chat_completions", mock_stream)
 
     response = client.post("/v1/chat/completions", json={
         "model": "llama3.1:8b",
@@ -166,11 +166,11 @@ def test_streaming_blocked_output_returns_canned_response(client: TestClient, mo
     assert "data: [DONE]" in response.text
 
 
-def test_models_endpoint_proxies_to_ollama(client: TestClient, monkeypatch) -> None:
+def test_models_endpoint_proxies_to_upstream(client: TestClient, monkeypatch) -> None:
     async def mock_models(self):
         return {"object": "list", "data": [{"id": "llama3.1:8b", "object": "model"}]}
 
-    monkeypatch.setattr("app.clients.ollama.OllamaClient.models", mock_models)
+    monkeypatch.setattr("app.clients.upstream.OpenAICompatibleClient.models", mock_models)
 
     response = client.get("/v1/models")
 

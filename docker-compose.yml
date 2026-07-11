@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     environment:
       GUARD_POLICY_PATH: /app/policies/permissive.yaml
-      OLLAMA_BASE_URL: https://api.openai.com
+      GUARD_UPSTREAM_BASE_URL: ${GUARD_UPSTREAM_BASE_URL:-https://api.openai.com}
       GUARD_UPSTREAM_API_KEY: ${OPENAI_API_KEY:-}
       GUARD_CLASSIFIER_TIMEOUT_MS: "750"
       GUARD_LOG_LEVEL: INFO

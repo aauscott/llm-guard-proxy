@@ -1,6 +1,6 @@
 # llm-guard-proxy
 
-`llm-guard-proxy` is a local-first, OpenAI-compatible security proxy for LLM chat apps and coding agents. It sits between a client such as Open WebUI and an Ollama-compatible model backend, inspects input and output with policy-driven classifiers, and returns a canned assistant response when policy says a request or response should be blocked.
+`llm-guard-proxy` is a local-first, OpenAI-compatible security proxy for LLM chat apps and coding agents. It sits between a client such as Open WebUI and an OpenAI-compatible model backend, inspects input and output with policy-driven classifiers, and returns a canned assistant response when policy says a request or response should be blocked.
 
 This is an experimental guardrail project, not a safety guarantee. Treat it as a development and evaluation layer that helps test local policies before relying on them in a real environment.
 
@@ -42,6 +42,17 @@ For local Ollama usage, the proxy forwards allowed requests to:
 http://ollama:11434
 ```
 
+The proxy currently targets the common subset of the OpenAI Chat Completions API:
+
+```text
+GET  /v1/models
+POST /v1/chat/completions
+```
+
+That means the upstream does not have to be OpenAI itself. Any backend or gateway that exposes those OpenAI-compatible routes can be used. Common options include local runtimes such as Ollama, llama.cpp server, LM Studio, LocalAI, and vLLM, or hosted gateways and inference providers such as LiteLLM Proxy, OpenRouter, Together AI, Groq, Fireworks, and DeepInfra.
+
+Native provider APIs that do not expose OpenAI-compatible routes are not direct drop-in backends yet. For example, Anthropic Claude's native Messages API would require either an OpenAI-compatible gateway in front of it or a future provider-specific adapter in this proxy.
+
 For each `/v1/chat/completions` request, the proxy:
 
 1. Loads the configured YAML policy.
@@ -49,7 +60,7 @@ For each `/v1/chat/completions` request, the proxy:
 3. Runs enabled input classifiers on that latest user turn.
 4. Blocks immediately if policy requires it.
 5. Removes prior guard-blocked turn pairs from the forwarded message history.
-6. Sends allowed requests to Ollama.
+6. Sends allowed requests to the configured upstream model backend.
 7. Inspects the assistant output.
 8. Returns either the model response or the policy canned response.
 
@@ -63,7 +74,7 @@ Phase 1 includes:
 
 - OpenAI-compatible `/v1/models`
 - OpenAI-compatible `/v1/chat/completions`
-- Ollama forwarding
+- OpenAI-compatible upstream forwarding
 - YAML policy loading
 - Input and output guard stages
 - Deterministic classifiers for terms, regex, secrets, prompt injection, URL obfuscation, and safety stubs
@@ -83,7 +94,7 @@ Out of scope for now:
 
 The proxy supports `stream: true` requests and returns `text/event-stream` responses for OpenAI-style streaming clients.
 
-The current implementation is conservative: it buffers the Ollama stream, reconstructs the assistant text, runs the output guard, and then replays the stream to the client if allowed. If output is blocked, the proxy returns a streamed canned response instead.
+The current implementation is conservative: it buffers the upstream stream, reconstructs the assistant text, runs the output guard, and then replays the stream to the client if allowed. If output is blocked, the proxy returns a streamed canned response instead.
 
 That means Open WebUI can use streaming without hanging, but the response may not feel like true token-by-token live typing. This avoids showing unsafe output before the output guard has a chance to inspect the completed assistant response.
 
@@ -112,7 +123,7 @@ OPENAI_API_KEY=sk-... docker compose up -d llm-guard-proxy
 Start the proxy and Docker-managed Ollama instead:
 
 ```bash
-docker compose --profile ollama up -d
+GUARD_UPSTREAM_BASE_URL=http://ollama:11434 docker compose --profile ollama up -d
 ```
 
 Check what is running:
@@ -133,6 +144,66 @@ Restart only the proxy after code changes:
 ```bash
 docker compose restart llm-guard-proxy
 ```
+
+Docker is the recommended development path because it gives you one repeatable local setup, but the proxy is a normal Python/FastAPI app and can also run directly on the host.
+
+## Run Locally
+
+Create a virtual environment and install the project:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+Run the proxy against OpenAI:
+
+```bash
+GUARD_UPSTREAM_BASE_URL=https://api.openai.com \
+GUARD_UPSTREAM_API_KEY=sk-... \
+GUARD_POLICY_PATH=policies/permissive.yaml \
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Run the proxy against a local Ollama daemon:
+
+```bash
+ollama pull deepseek-r1:1.5b
+GUARD_UPSTREAM_BASE_URL=http://localhost:11434 \
+GUARD_POLICY_PATH=policies/permissive.yaml \
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+You do not need to run `ollama run` for Open WebUI or the proxy to use a model. `ollama pull` downloads it; the Ollama server loads it when a request arrives.
+
+The proxy URL for local clients is:
+
+```text
+http://localhost:8000/v1
+```
+
+## Other Backends
+
+`GUARD_UPSTREAM_BASE_URL` should point to the upstream server base URL without `/v1`. The proxy appends `/v1/models` and `/v1/chat/completions`.
+
+For llama.cpp with a GGUF model, start `llama-server` with its OpenAI-compatible server:
+
+```bash
+llama-server -m /path/to/model.gguf --host 127.0.0.1 --port 8080
+```
+
+Then run the proxy in front of it:
+
+```bash
+GUARD_UPSTREAM_BASE_URL=http://localhost:8080 \
+GUARD_POLICY_PATH=policies/permissive.yaml \
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+The same pattern works for other OpenAI-compatible local servers or gateways. For example, set `GUARD_UPSTREAM_BASE_URL` to the base URL for LM Studio, LocalAI, vLLM, LiteLLM Proxy, or another compatible runtime.
+
+The Ollama CLI command `ollama run` is not a direct client for this proxy. It talks to the Ollama daemon using Ollama's native API, while this proxy currently exposes the OpenAI-compatible API. Use an OpenAI-compatible client or UI, such as Open WebUI, when you want requests to pass through the guard layer.
 
 ## Run Open WebUI
 
@@ -299,7 +370,7 @@ Docker Compose currently sets:
 
 ```text
 GUARD_POLICY_PATH=/app/policies/permissive.yaml
-OLLAMA_BASE_URL=https://api.openai.com
+GUARD_UPSTREAM_BASE_URL=https://api.openai.com
 GUARD_UPSTREAM_API_KEY=${OPENAI_API_KEY}
 GUARD_CLASSIFIER_TIMEOUT_MS=750
 GUARD_LOG_LEVEL=INFO
@@ -309,7 +380,7 @@ For local, non-Docker development, typical values are:
 
 ```text
 GUARD_POLICY_PATH=policies/permissive.yaml
-OLLAMA_BASE_URL=https://api.openai.com
+GUARD_UPSTREAM_BASE_URL=https://api.openai.com
 GUARD_UPSTREAM_API_KEY=sk-...
 GUARD_CLASSIFIER_TIMEOUT_MS=750
 GUARD_LOG_LEVEL=INFO
@@ -318,13 +389,15 @@ GUARD_LOG_LEVEL=INFO
 Run the proxy locally:
 
 ```bash
-OLLAMA_BASE_URL=https://api.openai.com \
+GUARD_UPSTREAM_BASE_URL=https://api.openai.com \
 GUARD_UPSTREAM_API_KEY=sk-... \
 GUARD_POLICY_PATH=policies/permissive.yaml \
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-To use local Ollama instead, set `OLLAMA_BASE_URL=http://localhost:11434` locally or `OLLAMA_BASE_URL=http://ollama:11434` in Docker Compose, and leave `GUARD_UPSTREAM_API_KEY` unset.
+To use local Ollama instead, set `GUARD_UPSTREAM_BASE_URL=http://localhost:11434` locally or `GUARD_UPSTREAM_BASE_URL=http://ollama:11434` in Docker Compose, and leave `GUARD_UPSTREAM_API_KEY` unset.
+
+For compatibility with earlier versions, `UPSTREAM_BASE_URL`, `OLLAMA_BASE_URL`, and `GUARD_OLLAMA_BASE_URL` are also accepted as aliases for `GUARD_UPSTREAM_BASE_URL`.
 
 ## Policy Packs
 
@@ -381,7 +454,7 @@ docker ps -a
 Start the security-layer stack:
 
 ```bash
-docker compose --profile ollama up -d
+GUARD_UPSTREAM_BASE_URL=http://ollama:11434 docker compose --profile ollama up -d
 ```
 
 Start Open WebUI:

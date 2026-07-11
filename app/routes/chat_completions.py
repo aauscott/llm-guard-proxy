@@ -6,7 +6,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
-from app.clients.ollama import OllamaClient
+from app.clients.upstream import OpenAICompatibleClient
 from app.config import Settings
 from app.guards.input_guard import inspect_input
 from app.guards.output_guard import inspect_output
@@ -22,7 +22,7 @@ router = APIRouter()
 @router.get("/v1/models")
 async def models(request: Request) -> dict[str, Any]:
     settings: Settings = request.app.state.settings
-    client = OllamaClient(settings.ollama_base_url, settings.upstream_api_key)
+    client = OpenAICompatibleClient(settings.upstream_base_url, settings.upstream_api_key)
     return await client.models()
 
 
@@ -59,7 +59,7 @@ async def chat_completions(payload: ChatCompletionRequest, request: Request) -> 
             )
         return blocked_response(request_id, policy, payload.model)
 
-    client = OllamaClient(settings.ollama_base_url, settings.upstream_api_key)
+    client = OpenAICompatibleClient(settings.upstream_base_url, settings.upstream_api_key)
     backend_body = _backend_payload(payload, policy)
     if payload.stream:
         stream_chunks = await client.stream_chat_completions(backend_body)
