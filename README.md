@@ -97,10 +97,10 @@ Start Docker Desktop first on macOS:
 open -a Docker
 ```
 
-From the project directory:
+From this directory:
 
 ```bash
-cd /Users/aascott/security-layer
+cd /path/to/security-layer
 ```
 
 Start the proxy backed by OpenAI:
@@ -175,13 +175,13 @@ If the model hangs, confirm streaming support is running in the proxy, restart t
 List models inside the Docker Ollama container:
 
 ```bash
-docker exec security-layer-ollama-1 ollama list
+docker compose --profile ollama exec ollama ollama list
 ```
 
 Pull a model into Docker Ollama:
 
 ```bash
-docker exec security-layer-ollama-1 ollama pull deepseek-r1:1.5b
+docker compose --profile ollama exec ollama ollama pull deepseek-r1:1.5b
 ```
 
 You do not need to run `ollama run` for Open WebUI or the proxy to use a model. `ollama pull` downloads it; the Ollama server loads it when a request arrives.
