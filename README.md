@@ -102,10 +102,13 @@ True live passthrough streaming with output blocking would require more plumbing
 
 ## Run With Docker
 
-Start Docker Desktop first on macOS:
+Make sure Docker Engine and Docker Compose are installed and running. On Linux, this is usually the Docker service. On macOS or Windows, this is usually Docker Desktop.
+
+Check Docker from your terminal:
 
 ```bash
-open -a Docker
+docker ps
+docker compose version
 ```
 
 From this directory:
@@ -139,12 +142,6 @@ Stop the stack:
 docker compose --profile ollama down
 ```
 
-Restart only the proxy after code changes:
-
-```bash
-docker compose restart llm-guard-proxy
-```
-
 Docker is the recommended development path because it gives you one repeatable local setup, but the proxy is a normal Python/FastAPI app and can also run directly on the host.
 
 ## Run Locally
@@ -166,14 +163,70 @@ GUARD_POLICY_PATH=policies/permissive.yaml \
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Run the proxy against a local Ollama daemon:
+Run the proxy against a local Ollama server:
+
+If Ollama is not already running, start it in another terminal:
+
+```bash
+ollama serve
+```
+
+Pull a local model:
 
 ```bash
 ollama pull deepseek-r1:1.5b
+```
+
+Start the proxy:
+
+```bash
 GUARD_UPSTREAM_BASE_URL=http://localhost:11434 \
 GUARD_POLICY_PATH=policies/permissive.yaml \
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+Or use the local helper scripts:
+
+```bash
+./run-local.sh
+./stop-local.sh
+```
+
+To have the helper start Ollama if it is not already running and make sure a model is available:
+
+```bash
+./run-local.sh --with-ollama --model deepseek-r1:1.5b
+```
+
+`--model` checks `ollama list` first and only runs `ollama pull` if the model is missing. The chat client still chooses which model to request, for example `deepseek-r1:1.5b` in Open WebUI.
+
+Stop the proxy:
+
+```bash
+./stop-local.sh
+```
+
+If `./run-local.sh --with-ollama` started Ollama for you, stop both processes:
+
+```bash
+./stop-local.sh --ollama
+```
+
+`./run-local.sh` defaults to `GUARD_UPSTREAM_BASE_URL=http://localhost:11434`, `GUARD_POLICY_PATH=policies/permissive.yaml`, and `GUARD_PORT=8000`. You can also pass flags:
+
+```bash
+./run-local.sh --upstream http://localhost:11434 --policy policies/permissive.yaml --port 8000
+```
+
+Or override values inline when needed:
+
+```bash
+GUARD_UPSTREAM_BASE_URL=https://api.openai.com \
+GUARD_UPSTREAM_API_KEY=sk-... \
+./run-local.sh
+```
+
+Each local run writes a timestamped log file under `logs/`.
 
 You do not need to run `ollama run` for Open WebUI or the proxy to use a model. `ollama pull` downloads it; the Ollama server loads it when a request arrives.
 
@@ -203,7 +256,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 The same pattern works for other OpenAI-compatible local servers or gateways. For example, set `GUARD_UPSTREAM_BASE_URL` to the base URL for LM Studio, LocalAI, vLLM, LiteLLM Proxy, or another compatible runtime.
 
-The Ollama CLI command `ollama run` is not a direct client for this proxy. It talks to the Ollama daemon using Ollama's native API, while this proxy currently exposes the OpenAI-compatible API. Use an OpenAI-compatible client or UI, such as Open WebUI, when you want requests to pass through the guard layer.
+The Ollama CLI command `ollama run` is not a direct client for this proxy. It talks to the Ollama server using Ollama's native API, while this proxy currently exposes the OpenAI-compatible API. Use an OpenAI-compatible client or UI, such as Open WebUI, when you want requests to pass through the guard layer.
 
 ## Run Open WebUI
 

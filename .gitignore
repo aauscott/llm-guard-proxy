@@ -1,0 +1,8 @@
+.DS_Store
+.llm-guard-proxy.pid
+.llm-guard-ollama.pid
+logs/
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
