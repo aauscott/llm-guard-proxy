@@ -1,4 +1,5 @@
 from app.classifiers.base import Classifier
+from app.classifiers.llama_guard import LlamaGuardClassifier
 from app.classifiers.prompt_injection import PromptInjectionClassifier
 from app.classifiers.regex import RegexClassifier
 from app.classifiers.safety_llm_stub import SafetyLlmStubClassifier
@@ -13,5 +14,6 @@ CLASSIFIERS: dict[str, Classifier] = {
     "secrets": SecretsClassifier(),
     "prompt_injection": PromptInjectionClassifier(),
     "url_obfuscation": UrlObfuscationClassifier(),
+    "llama_guard": LlamaGuardClassifier(),
     "safety_llm_stub": SafetyLlmStubClassifier(),
 }

@@ -77,7 +77,8 @@ Phase 1 includes:
 - OpenAI-compatible upstream forwarding
 - YAML policy loading
 - Input and output guard stages
-- Deterministic classifiers for terms, regex, secrets, prompt injection, URL obfuscation, and safety stubs
+- Deterministic classifiers for terms, regex, secrets, prompt injection, and URL obfuscation
+- Optional Llama Guard 3 input/output classification through Ollama
 - Structured audit logs
 - Docker development setup
 - Tests for policy loading, policy decisions, classifiers, normal chat, and streaming chat
@@ -257,6 +258,45 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 The same pattern works for other OpenAI-compatible local servers or gateways. For example, set `GUARD_UPSTREAM_BASE_URL` to the base URL for LM Studio, LocalAI, vLLM, LiteLLM Proxy, or another compatible runtime.
 
 The Ollama CLI command `ollama run` is not a direct client for this proxy. It talks to the Ollama server using Ollama's native API, while this proxy currently exposes the OpenAI-compatible API. Use an OpenAI-compatible client or UI, such as Open WebUI, when you want requests to pass through the guard layer.
+
+## Optional Llama Guard Classifier
+
+`llama_guard` is an optional model-based classifier that runs alongside the selected deterministic classifiers. It is disabled by default. Pull the model before enabling it:
+
+```bash
+ollama pull llama-guard3:8b
+```
+
+Add it to either or both policy stages and configure its Ollama connection:
+
+```yaml
+stages:
+  input:
+    enabled_classifiers:
+      - terms
+      - regex
+      - secrets
+      - prompt_injection
+      - llama_guard
+  output:
+    enabled_classifiers:
+      - terms
+      - regex
+      - secrets
+      # Add `llama_guard` here to classify model responses too.
+
+llama_guard:
+  provider: ollama
+  base_url: http://localhost:11434
+  model: llama-guard3:8b
+  timeout_ms: 5000
+  keep_alive: 5m
+  severity: high
+```
+
+When the proxy runs in Docker Compose, use `http://ollama:11434` as `base_url`. An unsafe verdict becomes one or more normal policy findings, so the policy's severity and category rules decide whether to log, warn, review, or block. Ollama's categorical verdict currently receives confidence `1.0`; this is not a calibrated model probability.
+
+Ollama is the initial local integration. For production or dedicated GPU serving, consider a separate vLLM or SGLang service; the Ollama transport is isolated so another serving adapter can be added without changing policy decisions.
 
 ## Run Open WebUI
 

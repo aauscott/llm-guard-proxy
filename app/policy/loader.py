@@ -52,4 +52,5 @@ def classifier_config(policy: Policy) -> dict[str, Any]:
     return {
         "terms": policy.terms.model_dump(),
         "regex": policy.regex.model_dump(),
+        "llama_guard": policy.llama_guard.model_dump(),
     }

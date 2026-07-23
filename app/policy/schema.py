@@ -39,6 +39,15 @@ class RegexConfig(BaseModel):
     warn: list[RegexRule] = Field(default_factory=list)
 
 
+class LlamaGuardConfig(BaseModel):
+    provider: Literal["ollama"] = "ollama"
+    base_url: str = "http://localhost:11434"
+    model: str = "llama-guard3:8b"
+    timeout_ms: int = Field(default=5000, gt=0)
+    keep_alive: str = "5m"
+    severity: Severity = "high"
+
+
 class Thresholds(BaseModel):
     block: float = Field(default=0.0, ge=0.0, le=1.0)
     warn: float = Field(default=0.0, ge=0.0, le=1.0)
@@ -61,6 +70,7 @@ class Policy(BaseModel):
     thresholds: Thresholds = Field(default_factory=Thresholds)
     terms: TermsConfig = Field(default_factory=TermsConfig)
     regex: RegexConfig = Field(default_factory=RegexConfig)
+    llama_guard: LlamaGuardConfig = Field(default_factory=LlamaGuardConfig)
 
     @field_validator("actions")
     @classmethod

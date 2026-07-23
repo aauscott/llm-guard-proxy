@@ -11,7 +11,7 @@ from app.config import Settings
 from app.guards.input_guard import inspect_input
 from app.guards.output_guard import inspect_output
 from app.logging.audit import audit_guard
-from app.models import ChatCompletionRequest, GuardItem
+from app.models import ChatCompletionRequest, ChatMessage, GuardItem
 from app.policy.loader import classifier_config
 from app.policy.schema import Policy
 
@@ -68,6 +68,7 @@ async def chat_completions(payload: ChatCompletionRequest, request: Request) -> 
             request_id=request_id,
             stage="output",
             text=output_text,
+            messages=_output_guard_messages(payload.messages, output_text, policy),
             metadata={"model": payload.model},
         )
         output_result = await inspect_output(output_item, policy, config)
@@ -93,6 +94,7 @@ async def chat_completions(payload: ChatCompletionRequest, request: Request) -> 
         request_id=request_id,
         stage="output",
         text=output_text,
+        messages=_output_guard_messages(payload.messages, output_text, policy),
         metadata={"model": payload.model},
     )
     output_result = await inspect_output(output_item, policy, config)
@@ -173,6 +175,15 @@ def _backend_payload(payload: ChatCompletionRequest, policy: Policy) -> dict[str
         for message in _without_guard_blocked_turns(payload.messages, policy.defaults.canned_response)
     ]
     return body
+
+
+def _output_guard_messages(
+    messages: list[ChatMessage],
+    output_text: str,
+    policy: Policy,
+) -> list[ChatMessage]:
+    sanitized = _without_guard_blocked_turns(messages, policy.defaults.canned_response)
+    return [*sanitized, ChatMessage(role="assistant", content=output_text)]
 
 
 def _latest_user_turn(messages: list[Any]) -> list[Any] | None:

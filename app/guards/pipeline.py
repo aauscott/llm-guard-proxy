@@ -29,11 +29,15 @@ async def run_guard(item: GuardItem, policy: Policy, config: dict[str, Any] | No
         for name in enabled
         if name in CLASSIFIERS and item.stage in CLASSIFIERS[name].supported_stages
     ]
-    timeout = policy.defaults.classifier_timeout_ms / 1000
     started = time.perf_counter()
 
     tasks = [
-        _run_classifier(classifier.name, classifier.classify(item, config), timeout, policy)
+        _run_classifier(
+            classifier.name,
+            classifier.classify(item, config),
+            _classifier_timeout(classifier.name, config, policy),
+            policy,
+        )
         for classifier in classifiers
     ]
     results = await asyncio.gather(*tasks)
@@ -44,6 +48,12 @@ async def run_guard(item: GuardItem, policy: Policy, config: dict[str, Any] | No
         classifiers_run=[classifier.name for classifier in classifiers],
         latency_ms=latency_ms,
     )
+
+
+def _classifier_timeout(name: str, config: dict[str, Any], policy: Policy) -> float:
+    classifier_config = config.get(name, {})
+    timeout_ms = classifier_config.get("timeout_ms", policy.defaults.classifier_timeout_ms)
+    return timeout_ms / 1000
 
 
 async def _run_classifier(name: str, coroutine: Any, timeout: float, policy: Policy) -> list[GuardFinding]:
