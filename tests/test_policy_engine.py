@@ -1,10 +1,10 @@
-from app.models import GuardFinding
-from app.policy.engine import decide
-from app.policy.loader import load_policy
+from llm_guard_proxy.models import GuardFinding
+from llm_guard_proxy.policy.engine import decide
+from llm_guard_proxy.policy.loader import load_policy
 
 
 def test_blocks_critical_findings() -> None:
-    policy = load_policy("policies/permissive.yaml")
+    policy = load_policy("permissive")
     finding = GuardFinding(
         classifier="secrets",
         category="secret_leak",
@@ -20,7 +20,7 @@ def test_blocks_critical_findings() -> None:
 
 
 def test_warns_but_allows_prompt_injection_in_permissive_policy() -> None:
-    policy = load_policy("policies/permissive.yaml")
+    policy = load_policy("permissive")
     finding = GuardFinding(
         classifier="prompt_injection",
         category="prompt_injection",
@@ -37,7 +37,7 @@ def test_warns_but_allows_prompt_injection_in_permissive_policy() -> None:
 
 
 def test_allows_clean_findings() -> None:
-    policy = load_policy("policies/permissive.yaml")
+    policy = load_policy("permissive")
 
     decision = decide(policy, [])
 

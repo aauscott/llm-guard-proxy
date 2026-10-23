@@ -1,13 +1,13 @@
 import pytest
-from fastapi.testclient import TestClient
+from starlette.testclient import TestClient
 
-from app.config import get_settings
-from app.main import create_app
+from llm_guard_proxy.config import get_settings
+from llm_guard_proxy.main import create_app
 
 
 @pytest.fixture
 def client(monkeypatch) -> TestClient:
-    monkeypatch.setenv("GUARD_POLICY_PATH", "policies/school.yaml")
+    monkeypatch.setenv("GUARD_POLICY_PATH", "school")
     get_settings.cache_clear()
     return TestClient(create_app())
 
@@ -16,7 +16,7 @@ def test_blocked_input_does_not_call_upstream(client: TestClient, monkeypatch) -
     async def fail_if_called(self, body):
         raise AssertionError("Upstream should not be called")
 
-    monkeypatch.setattr("app.clients.upstream.OpenAICompatibleClient.chat_completions", fail_if_called)
+    monkeypatch.setattr("llm_guard_proxy.clients.upstream.OpenAICompatibleClient.chat_completions", fail_if_called)
 
     response = client.post("/v1/chat/completions", json={
         "model": "llama3.1:8b",
@@ -43,7 +43,7 @@ def test_clean_request_reaches_mocked_upstream(client: TestClient, monkeypatch) 
             }],
         }
 
-    monkeypatch.setattr("app.clients.upstream.OpenAICompatibleClient.chat_completions", mock_chat)
+    monkeypatch.setattr("llm_guard_proxy.clients.upstream.OpenAICompatibleClient.chat_completions", mock_chat)
 
     response = client.post("/v1/chat/completions", json={
         "model": "llama3.1:8b",
@@ -74,7 +74,7 @@ def test_prior_blocked_turn_does_not_poison_later_clean_request(client: TestClie
             }],
         }
 
-    monkeypatch.setattr("app.clients.upstream.OpenAICompatibleClient.chat_completions", mock_chat)
+    monkeypatch.setattr("llm_guard_proxy.clients.upstream.OpenAICompatibleClient.chat_completions", mock_chat)
 
     response = client.post("/v1/chat/completions", json={
         "model": "llama3.1:8b",
@@ -104,7 +104,7 @@ def test_blocked_output_returns_canned_response(client: TestClient, monkeypatch)
             }],
         }
 
-    monkeypatch.setattr("app.clients.upstream.OpenAICompatibleClient.chat_completions", mock_chat)
+    monkeypatch.setattr("llm_guard_proxy.clients.upstream.OpenAICompatibleClient.chat_completions", mock_chat)
 
     response = client.post("/v1/chat/completions", json={
         "model": "llama3.1:8b",
@@ -128,7 +128,7 @@ def test_streaming_clean_request_replays_backend_chunks(client: TestClient, monk
             "data: [DONE]\n\n",
         ]
 
-    monkeypatch.setattr("app.clients.upstream.OpenAICompatibleClient.stream_chat_completions", mock_stream)
+    monkeypatch.setattr("llm_guard_proxy.clients.upstream.OpenAICompatibleClient.stream_chat_completions", mock_stream)
 
     response = client.post("/v1/chat/completions", json={
         "model": "llama3.1:8b",
@@ -152,7 +152,7 @@ def test_streaming_blocked_output_returns_canned_response(client: TestClient, mo
             "data: [DONE]\n\n",
         ]
 
-    monkeypatch.setattr("app.clients.upstream.OpenAICompatibleClient.stream_chat_completions", mock_stream)
+    monkeypatch.setattr("llm_guard_proxy.clients.upstream.OpenAICompatibleClient.stream_chat_completions", mock_stream)
 
     response = client.post("/v1/chat/completions", json={
         "model": "llama3.1:8b",
@@ -170,7 +170,7 @@ def test_models_endpoint_proxies_to_upstream(client: TestClient, monkeypatch) ->
     async def mock_models(self):
         return {"object": "list", "data": [{"id": "llama3.1:8b", "object": "model"}]}
 
-    monkeypatch.setattr("app.clients.upstream.OpenAICompatibleClient.models", mock_models)
+    monkeypatch.setattr("llm_guard_proxy.clients.upstream.OpenAICompatibleClient.models", mock_models)
 
     response = client.get("/v1/models")
 

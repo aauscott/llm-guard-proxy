@@ -1,10 +1,10 @@
 import pytest
 
-from app.classifiers.llama_guard import LlamaGuardClassifier
-from app.clients.ollama_guard import OllamaGuardError
-from app.guards.pipeline import run_guard
-from app.models import ChatMessage, GuardItem
-from app.policy.loader import classifier_config, load_policy
+from llm_guard_proxy.classifiers.llama_guard import LlamaGuardClassifier
+from llm_guard_proxy.clients.ollama_guard import OllamaGuardError
+from llm_guard_proxy.guards.pipeline import run_guard
+from llm_guard_proxy.models import ChatMessage, GuardItem
+from llm_guard_proxy.policy.loader import classifier_config, load_policy
 
 
 def _config(**overrides):
@@ -27,7 +27,7 @@ async def test_safe_input_returns_no_findings(monkeypatch) -> None:
         captured.update(kwargs)
         return "safe"
 
-    monkeypatch.setattr("app.clients.ollama_guard.OllamaGuardClient.classify", mock_classify)
+    monkeypatch.setattr("llm_guard_proxy.clients.ollama_guard.OllamaGuardClient.classify", mock_classify)
     item = GuardItem(
         request_id="r1",
         stage="input",
@@ -46,7 +46,7 @@ async def test_unsafe_verdict_maps_hazard_categories(monkeypatch) -> None:
     async def mock_classify(self, **kwargs):
         return "unsafe\nS1,S11"
 
-    monkeypatch.setattr("app.clients.ollama_guard.OllamaGuardClient.classify", mock_classify)
+    monkeypatch.setattr("llm_guard_proxy.clients.ollama_guard.OllamaGuardClient.classify", mock_classify)
     item = GuardItem(request_id="r1", stage="input", text="unsafe example")
 
     findings = await LlamaGuardClassifier().classify(item, _config())
@@ -63,7 +63,7 @@ async def test_output_sends_prompt_and_response_context(monkeypatch) -> None:
         captured.update(kwargs)
         return "safe"
 
-    monkeypatch.setattr("app.clients.ollama_guard.OllamaGuardClient.classify", mock_classify)
+    monkeypatch.setattr("llm_guard_proxy.clients.ollama_guard.OllamaGuardClient.classify", mock_classify)
     item = GuardItem(
         request_id="r1",
         stage="output",
@@ -87,7 +87,7 @@ async def test_malformed_verdict_raises(monkeypatch) -> None:
     async def mock_classify(self, **kwargs):
         return "maybe"
 
-    monkeypatch.setattr("app.clients.ollama_guard.OllamaGuardClient.classify", mock_classify)
+    monkeypatch.setattr("llm_guard_proxy.clients.ollama_guard.OllamaGuardClient.classify", mock_classify)
     item = GuardItem(request_id="r1", stage="input", text="hello")
 
     with pytest.raises(ValueError, match="malformed verdict"):
@@ -96,13 +96,13 @@ async def test_malformed_verdict_raises(monkeypatch) -> None:
 
 @pytest.mark.parametrize(
     ("policy_path", "blocked"),
-    [("policies/permissive.yaml", False), ("policies/school.yaml", True)],
+    [("permissive", False), ("school", True)],
 )
 async def test_provider_failure_respects_policy_mode(monkeypatch, policy_path, blocked) -> None:
     async def mock_classify(self, **kwargs):
         raise OllamaGuardError("offline")
 
-    monkeypatch.setattr("app.clients.ollama_guard.OllamaGuardClient.classify", mock_classify)
+    monkeypatch.setattr("llm_guard_proxy.clients.ollama_guard.OllamaGuardClient.classify", mock_classify)
     policy = load_policy(policy_path)
     policy.stages["input"].enabled_classifiers = ["llama_guard"]
     item = GuardItem(request_id="r1", stage="input", text="hello")

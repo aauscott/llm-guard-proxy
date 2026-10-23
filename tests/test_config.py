@@ -1,4 +1,7 @@
-from app.config import Settings
+import pytest
+from pydantic import ValidationError
+
+from llm_guard_proxy.config import Settings
 
 
 def test_upstream_base_url_uses_guard_env_name(monkeypatch) -> None:
@@ -18,3 +21,10 @@ def test_upstream_base_url_accepts_legacy_ollama_env_name(monkeypatch) -> None:
     settings = Settings(_env_file=None)
 
     assert settings.upstream_base_url == "http://localhost:11434"
+
+
+def test_classifier_timeout_must_be_positive(monkeypatch) -> None:
+    monkeypatch.setenv("GUARD_CLASSIFIER_TIMEOUT_MS", "0")
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)

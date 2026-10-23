@@ -1,16 +1,32 @@
 import pytest
 
-from app.policy.loader import PolicyLoadError, load_policy
+from llm_guard_proxy.policy.loader import PolicyLoadError, classifier_config, load_policy
 
 
 def test_loads_valid_policy() -> None:
-    policy = load_policy("policies/permissive.yaml")
+    policy = load_policy("permissive")
 
     assert policy.name == "permissive"
     assert policy.mode == "fail_open"
     assert "prompt_injection" in policy.stages["input"].enabled_classifiers
     assert policy.llama_guard.model == "llama-guard3:8b"
     assert policy.llama_guard.timeout_ms == 5000
+
+
+def test_loads_bundled_policy_outside_repository(monkeypatch, tmp_path) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    policy = load_policy("school")
+
+    assert policy.name == "school_default"
+
+
+def test_global_timeout_is_added_to_classifier_config() -> None:
+    policy = load_policy("permissive")
+
+    config = classifier_config(policy, default_timeout_ms=250)
+
+    assert config["_default_timeout_ms"] == 250
 
 
 def test_rejects_unknown_classifier(tmp_path) -> None:

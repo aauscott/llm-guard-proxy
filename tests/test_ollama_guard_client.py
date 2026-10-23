@@ -3,7 +3,7 @@ import json
 import httpx
 import respx
 
-from app.clients.ollama_guard import OllamaGuardClient
+from llm_guard_proxy.clients.ollama_guard import OllamaGuardClient
 
 
 @respx.mock

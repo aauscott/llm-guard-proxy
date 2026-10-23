@@ -9,7 +9,7 @@ LOG_FILE="$LOG_DIR/llm-guard-proxy-$(date +%Y%m%d-%H%M%S).log"
 
 HOST="${GUARD_HOST:-0.0.0.0}"
 PORT="${GUARD_PORT:-8000}"
-export GUARD_POLICY_PATH="${GUARD_POLICY_PATH:-policies/permissive.yaml}"
+export GUARD_POLICY_PATH="${GUARD_POLICY_PATH:-permissive}"
 export GUARD_UPSTREAM_BASE_URL="${GUARD_UPSTREAM_BASE_URL:-http://localhost:11434}"
 START_OLLAMA=false
 OLLAMA_MODEL="${OLLAMA_MODEL:-}"
@@ -204,7 +204,7 @@ if [[ -n "$OLLAMA_MODEL" ]]; then
 fi
 echo "Logs: $LOG_FILE"
 
-nohup "$UVICORN" app.main:app --host "$HOST" --port "$PORT" --reload >"$LOG_FILE" 2>&1 &
+nohup "$UVICORN" llm_guard_proxy.main:app --host "$HOST" --port "$PORT" --reload >"$LOG_FILE" 2>&1 &
 echo "$!" >"$PID_FILE"
 
 echo "Started with PID $(cat "$PID_FILE")."

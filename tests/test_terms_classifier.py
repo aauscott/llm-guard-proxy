@@ -1,5 +1,5 @@
-from app.classifiers.terms import TermsClassifier
-from app.models import GuardItem
+from llm_guard_proxy.classifiers.terms import TermsClassifier
+from llm_guard_proxy.models import GuardItem
 
 
 async def test_terms_matches_blocked_terms_case_insensitively() -> None:
