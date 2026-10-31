@@ -176,3 +176,55 @@ def test_models_endpoint_proxies_to_upstream(client: TestClient, monkeypatch) ->
 
     assert response.status_code == 200
     assert response.json()["data"][0]["id"] == "llama3.1:8b"
+
+
+@pytest.mark.parametrize("stage", ["input", "output"])
+@pytest.mark.parametrize("stream", [False, True])
+def test_llama_guard_block_includes_category_and_allows_next_turn(client, monkeypatch, stage, stream):
+    import json
+
+    policy = client.app.state.policy
+    policy.stages["input"].enabled_classifiers = ["llama_guard"] if stage == "input" else []
+    policy.stages["output"].enabled_classifiers = ["llama_guard"] if stage == "output" else []
+    calls = []
+
+    async def classify(self, **kwargs):
+        return "unsafe\nS10"
+
+    async def chat(self, body):
+        calls.append(body)
+        return {"choices": [{"message": {"role": "assistant", "content": "reply"}}]}
+
+    async def stream_chat(self, body):
+        calls.append(body)
+        return ['data: {"choices":[{"delta":{"content":"reply"}}]}\n\n', 'data: [DONE]\n\n']
+
+    monkeypatch.setattr("llm_guard_proxy.clients.ollama_guard.OllamaGuardClient.classify", classify)
+    monkeypatch.setattr("llm_guard_proxy.clients.upstream.OpenAICompatibleClient.chat_completions", chat)
+    monkeypatch.setattr("llm_guard_proxy.clients.upstream.OpenAICompatibleClient.stream_chat_completions", stream_chat)
+    response = client.post("/v1/chat/completions", json={
+        "model": "chat", "stream": stream,
+        "messages": [{"role": "user", "content": "test message"}],
+    })
+    if stream:
+        first = json.loads(response.text.splitlines()[0].removeprefix("data: "))
+        text = first["choices"][0]["delta"]["content"]
+        assert "data: [DONE]" in response.text
+    else:
+        text = response.json()["choices"][0]["message"]["content"]
+    assert text.endswith("Llama Guard: hate (S10).")
+    assert len(calls) == (1 if stage == "output" else 0)
+
+    async def safe(self, **kwargs):
+        return "safe"
+
+    monkeypatch.setattr("llm_guard_proxy.clients.ollama_guard.OllamaGuardClient.classify", safe)
+    response = client.post("/v1/chat/completions", json={
+        "model": "chat", "messages": [
+            {"role": "user", "content": "test message"},
+            {"role": "assistant", "content": text},
+            {"role": "user", "content": "hello"},
+        ],
+    })
+    assert response.status_code == 200
+    assert calls[-1]["messages"] == [{"role": "user", "content": "hello"}]

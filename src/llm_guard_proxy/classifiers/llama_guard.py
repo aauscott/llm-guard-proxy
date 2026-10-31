@@ -2,6 +2,7 @@ import re
 
 from llm_guard_proxy.classifiers.base import Classifier
 from llm_guard_proxy.clients.ollama_guard import OllamaGuardClient
+from llm_guard_proxy.clients.http_guard import HTTPGuardClient
 from llm_guard_proxy.models import ChatMessage, GuardFinding, GuardItem, Severity
 
 
@@ -30,19 +31,19 @@ class LlamaGuardClassifier(Classifier):
     async def classify(self, item: GuardItem, config: dict) -> list[GuardFinding]:
         guard_config = config.get(self.name, {})
         provider = guard_config.get("provider", "ollama")
-        if provider != "ollama":
+        timeout = guard_config.get("timeout_ms", 5000) / 1000
+        base_url = guard_config.get("base_url", "http://localhost:11434")
+        messages = _guard_messages(item)
+        if provider == "http":
+            raw_verdict = await HTTPGuardClient(base_url, timeout).classify(messages=messages)
+        elif provider == "ollama":
+            raw_verdict = await OllamaGuardClient(base_url, timeout).classify(
+                model=guard_config.get("model", "llama-guard3:8b"),
+                messages=messages,
+                keep_alive=guard_config.get("keep_alive", "5m"),
+            )
+        else:
             raise ValueError(f"Unsupported Llama Guard provider: {provider}")
-
-        timeout_ms = guard_config.get("timeout_ms", 5000)
-        client = OllamaGuardClient(
-            base_url=guard_config.get("base_url", "http://localhost:11434"),
-            timeout=timeout_ms / 1000,
-        )
-        raw_verdict = await client.classify(
-            model=guard_config.get("model", "llama-guard3:8b"),
-            messages=_guard_messages(item),
-            keep_alive=guard_config.get("keep_alive", "5m"),
-        )
         return _findings_from_verdict(
             raw_verdict,
             severity=guard_config.get("severity", "high"),
@@ -89,10 +90,12 @@ def _findings_from_verdict(
     model: str,
 ) -> list[GuardFinding]:
     verdict = raw_verdict.strip().strip("`").strip()
-    match = re.match(r"^(safe|unsafe)\b", verdict, re.IGNORECASE)
+    match = re.fullmatch(r"(safe|unsafe)(?:\s+(S(?:1[0-4]|[1-9])(?:\s*,\s*S(?:1[0-4]|[1-9]))*))?", verdict, re.IGNORECASE)
     if not match:
         raise ValueError("Llama Guard returned a malformed verdict.")
     if match.group(1).lower() == "safe":
+        if match.group(2):
+            raise ValueError("Llama Guard returned a malformed verdict.")
         return []
 
     codes = sorted(
@@ -107,6 +110,7 @@ def _findings_from_verdict(
             classifier="llama_guard",
             category=HAZARD_CATEGORIES.get(code, "unsafe_content"),
             severity=severity,
+            action_hint="block",
             confidence=1.0,
             reason=f"Llama Guard classified the {code} content category as unsafe.",
             metadata={

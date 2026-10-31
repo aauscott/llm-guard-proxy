@@ -40,7 +40,7 @@ class RegexConfig(BaseModel):
 
 
 class LlamaGuardConfig(BaseModel):
-    provider: Literal["ollama"] = "ollama"
+    provider: Literal["ollama", "http"] = "ollama"
     base_url: str = "http://localhost:11434"
     model: str = "llama-guard3:8b"
     timeout_ms: int = Field(default=5000, gt=0)

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from typing import Any
 
@@ -63,6 +64,9 @@ async def _run_classifier(name: str, coroutine: Any, timeout: float, policy: Pol
     try:
         return await asyncio.wait_for(coroutine, timeout=timeout)
     except Exception as exc:
+        logging.getLogger("llm_guard_proxy.audit").warning(
+            "Classifier %s failed (%s); policy mode=%s", name, type(exc).__name__, policy.mode,
+        )
         if policy.mode == "fail_closed":
             return [GuardFinding(
                 classifier=name,

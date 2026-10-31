@@ -28,6 +28,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+guard = [
+  "torch>=2.3",
+  "transformers>=4.45,<6",
+  "peft>=0.20,<1",
+  "accelerate>=1.0,<2",
+]
 dev = [
   "build>=1.2.2",
   "pytest>=8.3.0",
@@ -39,6 +45,7 @@ notebook = [
 ]
 
 [project.scripts]
+llm-guard-service = "llm_guard_proxy.guard_service:main"
 llm-guard-proxy = "llm_guard_proxy.cli:main"
 
 [project.urls]

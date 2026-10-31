@@ -11,7 +11,7 @@ from llm_guard_proxy.config import Settings
 from llm_guard_proxy.guards.input_guard import inspect_input
 from llm_guard_proxy.guards.output_guard import inspect_output
 from llm_guard_proxy.logging.audit import audit_guard
-from llm_guard_proxy.models import ChatCompletionRequest, ChatMessage, GuardItem
+from llm_guard_proxy.models import ChatCompletionRequest, ChatMessage, GuardItem, PolicyDecision
 from llm_guard_proxy.policy.loader import classifier_config
 from llm_guard_proxy.policy.schema import Policy
 
@@ -54,10 +54,10 @@ async def chat_completions(payload: ChatCompletionRequest, request: Request) -> 
     if input_result.decision.blocked:
         if payload.stream:
             return StreamingResponse(
-                stream_blocked_response(request_id, policy, payload.model),
+                stream_blocked_response(request_id, policy, payload.model, input_result.decision),
                 media_type="text/event-stream",
             )
-        return blocked_response(request_id, policy, payload.model)
+        return blocked_response(request_id, policy, payload.model, input_result.decision)
 
     client = OpenAICompatibleClient(settings.upstream_base_url, settings.upstream_api_key)
     backend_body = _backend_payload(payload, policy)
@@ -82,7 +82,7 @@ async def chat_completions(payload: ChatCompletionRequest, request: Request) -> 
         )
         if output_result.decision.blocked:
             return StreamingResponse(
-                stream_blocked_response(request_id, policy, payload.model),
+                stream_blocked_response(request_id, policy, payload.model, output_result.decision),
                 media_type="text/event-stream",
             )
         return StreamingResponse(iter(stream_chunks), media_type="text/event-stream")
@@ -107,12 +107,32 @@ async def chat_completions(payload: ChatCompletionRequest, request: Request) -> 
         text=output_text,
     )
     if output_result.decision.blocked:
-        return blocked_response(request_id, policy, payload.model)
+        return blocked_response(request_id, policy, payload.model, output_result.decision)
 
     return backend_response
 
 
-def blocked_response(request_id: str, policy: Policy, model: str) -> dict[str, Any]:
+def _blocked_text(policy: Policy, decision: PolicyDecision | None) -> str:
+    text = policy.defaults.canned_response
+    if decision:
+        reasons = sorted({
+            f"{finding.category.replace('_', ' ')} ({finding.metadata['hazard_code']})"
+            if finding.metadata.get("hazard_code") else finding.category.replace("_", " ")
+            for finding in decision.findings
+            if finding.classifier == "llama_guard" and finding.action_hint == "block"
+            and finding.category != "classifier_error"
+        })
+        if reasons:
+            text += "\nLlama Guard: " + ", ".join(reasons) + "."
+    return text
+
+
+def _is_blocked_text(text: str, canned_response: str) -> bool:
+    text = text.strip()
+    return text == canned_response or text.startswith(canned_response + "\nLlama Guard: ")
+
+
+def blocked_response(request_id: str, policy: Policy, model: str, decision: PolicyDecision | None = None) -> dict[str, Any]:
     return {
         "id": f"guard-blocked-{request_id}",
         "object": "chat.completion",
@@ -123,7 +143,7 @@ def blocked_response(request_id: str, policy: Policy, model: str) -> dict[str, A
                 "index": 0,
                 "message": {
                     "role": "assistant",
-                    "content": policy.defaults.canned_response,
+                    "content": _blocked_text(policy, decision),
                 },
                 "finish_reason": "stop",
             }
@@ -131,7 +151,7 @@ def blocked_response(request_id: str, policy: Policy, model: str) -> dict[str, A
     }
 
 
-def stream_blocked_response(request_id: str, policy: Policy, model: str):
+def stream_blocked_response(request_id: str, policy: Policy, model: str, decision: PolicyDecision | None = None):
     response_id = f"guard-blocked-{request_id}"
     created = int(time.time())
     first_chunk = {
@@ -144,7 +164,7 @@ def stream_blocked_response(request_id: str, policy: Policy, model: str):
                 "index": 0,
                 "delta": {
                     "role": "assistant",
-                    "content": policy.defaults.canned_response,
+                    "content": _blocked_text(policy, decision),
                 },
                 "finish_reason": None,
             }
@@ -203,11 +223,11 @@ def _without_guard_blocked_turns(messages: list[Any], canned_response: str) -> l
             message.role == "user"
             and next_message is not None
             and next_message.role == "assistant"
-            and _message_text(next_message).strip() == canned_response
+            and _is_blocked_text(_message_text(next_message), canned_response)
         ):
             index += 2
             continue
-        if message.role == "assistant" and _message_text(message).strip() == canned_response:
+        if message.role == "assistant" and _is_blocked_text(_message_text(message), canned_response):
             index += 1
             continue
         sanitized.append(message)

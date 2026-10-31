@@ -186,29 +186,111 @@ Actions are ranked from `allow` through `log`, `warn`, `redact`, `review`, and `
 
 ### Optional Llama Guard
 
-The `llama_guard` classifier is disabled in the starter policies. To use it, first pull the model:
+Llama Guard runs alongside the rule classifiers. Each stage schedules all enabled
+checks concurrently and waits for their results or timeouts before deciding.
+Every `unsafe` verdict blocks, even if the policy maps `high` severity to `warn`.
+The blocked chat response includes the detected category, for example
+`Llama Guard: hate (S10).` This works with streaming and non-streaming clients.
+
+#### Separate local service with the Confusable Guard adapter
+
+The optional service loads `meta-llama/Llama-Guard-3-1B` and
+`aascott/Llama-Guard-3-1B-Confusable-Guard-LoRA` once at startup, using pinned
+revisions from the model card. No retraining, merging, or changes to the model
+repository are required. The service uses the base tokenizer's safety template,
+not an ordinary assistant prompt. It selects CUDA, Apple MPS, or CPU automatically.
+
+Install in a separate environment, from this repository:
+
+```bash
+python3 -m venv .venv-guard
+.venv-guard/bin/pip install -e ".[guard]"
+```
+
+Accept access to the gated base model on Hugging Face, then authenticate locally
+if the weights are not already cached:
+
+```bash
+.venv-guard/bin/hf auth login
+```
+
+Start the guard service in its own terminal:
+
+```bash
+.venv-guard/bin/llm-guard-service
+```
+
+The default address is `http://127.0.0.1:8001`. Startup downloads missing model
+files and loads the weights; `/health` returns `{"status":"ready"}` once ready.
+One model generation runs at a time; concurrent inference requests receive 503
+rather than accumulating in a queue. Timed-out HTTP calls do not cancel an
+already-running model generation.
+
+To load an existing local adapter instead:
+
+```bash
+.venv-guard/bin/llm-guard-service --adapter /absolute/path/to/adapter
+```
+
+Add `llama_guard` to your custom policy's **input** `enabled_classifiers`, leaving
+all existing rule classifiers in place. Add this top-level configuration:
+
+```yaml
+llama_guard:
+  provider: http
+  base_url: http://127.0.0.1:8001
+  model: aascott/Llama-Guard-3-1B-Confusable-Guard-LoRA
+  timeout_ms: 30000
+  severity: high
+```
+
+For this provider, `model` labels findings; the service's startup arguments select
+the actual model. Add `llama_guard` to the output stage as well if you want response
+moderation. Output checks include conversation context and assess the last
+assistant message. Overlong conversations are rejected rather than truncated.
+
+Restart the proxy after editing your policy:
+
+```bash
+./stop-local.sh
+./run-local.sh --with-ollama --model deepseek-r1:1.5b --policy ./policies/my-policy.yaml
+```
+
+The guard service and Ollama are independent processes. The proxy's stop helper
+does not stop the guard service; use Ctrl+C in its terminal.
+
+`mode: fail_open` logs classifier errors/timeouts and lets other checks decide.
+`mode: fail_closed` blocks on classifier errors, including an unavailable or busy
+guard service. Unsafe verdicts block under either mode. The 30-second timeout is
+a starting value; CPU inference or long conversations may require more time.
+
+The HTTP contract is `POST /classify` with
+`{"messages":[{"role":"user","content":"Hello"}]}`. It returns
+`{"verdict":"safe","categories":[]}` or, for example,
+`{"verdict":"unsafe","categories":["S10"]}`. Messages must start with a user;
+consecutive messages with the same role are combined for the safety template.
+
+#### Llama Guard hosted by Ollama
+
+The existing Ollama integration is also supported:
 
 ```bash
 ollama pull llama-guard3:8b
 ```
 
-Then add `llama_guard` to an input or output stage in a copied policy:
+Enable `llama_guard` in the desired stages and configure:
 
 ```yaml
-stages:
-  input:
-    enabled_classifiers: [terms, regex, secrets, prompt_injection, llama_guard]
-
 llama_guard:
   provider: ollama
   base_url: http://localhost:11434
   model: llama-guard3:8b
-  timeout_ms: 5000
+  timeout_ms: 30000
   keep_alive: 5m
   severity: high
 ```
 
-Use `http://ollama:11434` when both services run in Docker Compose.
+Use `http://ollama:11434` when the guard model and proxy run in Docker Compose.
 
 ## Configuration
 

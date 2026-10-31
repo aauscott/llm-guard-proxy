@@ -53,7 +53,7 @@ async def test_unsafe_verdict_maps_hazard_categories(monkeypatch) -> None:
 
     assert [finding.category for finding in findings] == ["violent_crimes", "self_harm"]
     assert [finding.metadata["hazard_code"] for finding in findings] == ["S1", "S11"]
-    assert all(finding.action_hint is None for finding in findings)
+    assert all(finding.action_hint == "block" for finding in findings)
 
 
 async def test_output_sends_prompt_and_response_context(monkeypatch) -> None:
@@ -112,3 +112,11 @@ async def test_provider_failure_respects_policy_mode(monkeypatch, policy_path, b
     assert result.decision.blocked is blocked
     if blocked:
         assert result.decision.findings[0].category == "classifier_error"
+
+
+@pytest.mark.parametrize("verdict", ["safe but actually unsafe", "safe\nS1", "unsafe\nS999", "unsafe\nS1 trailing text"])
+def test_verdict_parser_rejects_ambiguous_or_invalid_output(verdict):
+    from llm_guard_proxy.classifiers.llama_guard import _findings_from_verdict
+
+    with pytest.raises(ValueError, match="malformed verdict"):
+        _findings_from_verdict(verdict, severity="high", model="guard")
