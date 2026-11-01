@@ -4,6 +4,8 @@
 
 A local-first security layer for OpenAI-compatible chat applications. It inspects prompts and model responses with configurable policy rules before traffic reaches the client or model.
 
+The project is intended for filtering local inference in homelabs, enterprise labs, and self-hosted or isolated AI environments. It gives administrators a way to set filters for their users: inspect potentially harmful or policy-violating input before it reaches the model, and check generated output before it reaches the user. Policies let you choose what to block, warn about, or log for your environment.
+
 ```text
 client  ->  llm-guard-proxy  ->  OpenAI-compatible model server
               |       |
