@@ -12,6 +12,7 @@ from llm_guard_proxy.guards.input_guard import inspect_input
 from llm_guard_proxy.guards.output_guard import inspect_output
 from llm_guard_proxy.logging.audit import audit_guard
 from llm_guard_proxy.models import ChatCompletionRequest, ChatMessage, GuardItem, PolicyDecision
+from llm_guard_proxy.policy.engine import action_for_finding
 from llm_guard_proxy.policy.loader import classifier_config
 from llm_guard_proxy.policy.schema import Policy
 
@@ -31,7 +32,7 @@ async def chat_completions(payload: ChatCompletionRequest, request: Request) -> 
     settings: Settings = request.app.state.settings
     policy: Policy = request.app.state.policy
     request_id = request.headers.get("x-request-id", str(uuid4()))
-    config = classifier_config(policy, settings.classifier_timeout_ms)
+    config = classifier_config(policy, policy.defaults.classifier_timeout_ms if settings.admin_enabled else settings.classifier_timeout_ms)
 
     input_messages = _latest_user_turn(payload.messages) or payload.messages
     input_text = _messages_to_text(input_messages)
@@ -119,7 +120,7 @@ def _blocked_text(policy: Policy, decision: PolicyDecision | None) -> str:
             f"{finding.category.replace('_', ' ')} ({finding.metadata['hazard_code']})"
             if finding.metadata.get("hazard_code") else finding.category.replace("_", " ")
             for finding in decision.findings
-            if finding.classifier == "llama_guard" and finding.action_hint == "block"
+            if finding.classifier == "llama_guard" and action_for_finding(policy, finding) == "block"
             and finding.category != "classifier_error"
         })
         if reasons:

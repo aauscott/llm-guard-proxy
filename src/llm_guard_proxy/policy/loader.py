@@ -1,6 +1,7 @@
 from importlib.resources import files
 from pathlib import Path
 import re
+import logging
 from typing import Any
 
 import yaml
@@ -22,6 +23,14 @@ def load_policy(path: str | Path) -> Policy:
     except yaml.YAMLError as exc:
         raise PolicyLoadError(f"Policy YAML is malformed: {exc}") from exc
 
+    if isinstance(raw, dict) and ("categories" in raw or any(
+        isinstance(raw.get(section), dict) and key in raw[section] for section in ("terms", "regex") for key in ("block", "warn")
+    )):
+        logging.getLogger(__name__).warning(
+            "Loading legacy policy %s with severity-only actions: category overrides are ignored; "
+            "block/warn terms become high/medium and regex rules keep their severities. "
+            "Review the severity mapping, then save in the editor to update the format.", path,
+        )
     try:
         policy = Policy.model_validate(raw)
     except ValidationError as exc:
@@ -59,7 +68,7 @@ def validate_classifier_names(policy: Policy) -> None:
 
 
 def validate_regex_patterns(policy: Policy) -> None:
-    for rule in [*policy.regex.block, *policy.regex.warn]:
+    for rule in policy.regex.rules:
         try:
             re.compile(rule.pattern)
         except re.error as exc:

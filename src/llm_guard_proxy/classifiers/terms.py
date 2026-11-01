@@ -10,29 +10,15 @@ class TermsClassifier(Classifier):
         text = item.text.lower()
         findings: list[GuardFinding] = []
         terms = config.get("terms", {})
-
-        for term in terms.get("block", []):
-            if term.lower() in text:
-                findings.append(GuardFinding(
-                    classifier=self.name,
-                    category="blocked_term",
-                    severity="high",
-                    confidence=1.0,
-                    action_hint="block",
-                    matched=term,
-                    reason="Blocked policy term matched.",
-                ))
-
-        for term in terms.get("warn", []):
-            if term.lower() in text:
-                findings.append(GuardFinding(
-                    classifier=self.name,
-                    category="warning_term",
-                    severity="medium",
-                    confidence=1.0,
-                    action_hint="warn",
-                    matched=term,
-                    reason="Warning policy term matched.",
-                ))
-
+        for severity in ("critical", "high", "medium", "low"):
+            for term in terms.get(severity, []):
+                if term.lower() in text:
+                    findings.append(GuardFinding(
+                        classifier=self.name,
+                        category="policy_term",
+                        severity=severity,
+                        confidence=1.0,
+                        matched=term,
+                        reason="Policy term matched.",
+                    ))
         return findings

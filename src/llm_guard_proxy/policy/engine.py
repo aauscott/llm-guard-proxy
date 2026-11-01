@@ -42,14 +42,10 @@ def decide(policy: Policy, findings: list[GuardFinding]) -> PolicyDecision:
 
 
 def action_for_finding(policy: Policy, finding: GuardFinding) -> Action:
-    candidates: list[Action] = []
-    if finding.action_hint:
-        candidates.append(finding.action_hint)
-    if category_policy := policy.categories.get(finding.category):
-        candidates.append(category_policy.min_action)
-    candidates.append(policy.actions[finding.severity])
-
-    action = max(candidates, key=lambda item: ACTION_RANK[item])
+    # Failure handling is an operational setting, independent of content severity.
+    if finding.category == "classifier_error" and policy.mode == "fail_closed":
+        return "block"
+    action = policy.actions[finding.severity]
     threshold = getattr(policy.thresholds, action, 0.0)
     if finding.confidence < threshold:
         return "allow"

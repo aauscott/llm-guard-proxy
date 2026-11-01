@@ -18,25 +18,44 @@ class StageConfig(BaseModel):
     enabled_classifiers: list[str] = Field(default_factory=list)
 
 
-class CategoryPolicy(BaseModel):
-    min_action: Action
-
-
 class RegexRule(BaseModel):
     name: str
     pattern: str
-    category: str
+    category: str = "custom_pattern"
     severity: Severity
 
 
 class TermsConfig(BaseModel):
-    block: list[str] = Field(default_factory=list)
-    warn: list[str] = Field(default_factory=list)
+    critical: list[str] = Field(default_factory=list)
+    high: list[str] = Field(default_factory=list)
+    medium: list[str] = Field(default_factory=list)
+    low: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_action_lists(cls, value):
+        if isinstance(value, dict):
+            value = dict(value)
+            for old, severity in (("block", "high"), ("warn", "medium")):
+                if old in value:
+                    if not isinstance(value[old], list) or not isinstance(value.get(severity, []), list):
+                        raise ValueError("Term groups must be lists.")
+                    value[severity] = [*value.get(severity, []), *value.pop(old)]
+        return value
 
 
 class RegexConfig(BaseModel):
-    block: list[RegexRule] = Field(default_factory=list)
-    warn: list[RegexRule] = Field(default_factory=list)
+    rules: list[RegexRule] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_action_lists(cls, value):
+        if isinstance(value, dict):
+            value = dict(value)
+            if any(not isinstance(value.get(key, []), list) for key in ("rules", "block", "warn")):
+                raise ValueError("Pattern rules must be lists.")
+            value["rules"] = [*value.get("rules", []), *value.pop("block", []), *value.pop("warn", [])]
+        return value
 
 
 class LlamaGuardConfig(BaseModel):
@@ -66,7 +85,6 @@ class Policy(BaseModel):
         "medium": "warn",
         "low": "log",
     })
-    categories: dict[str, CategoryPolicy] = Field(default_factory=dict)
     thresholds: Thresholds = Field(default_factory=Thresholds)
     terms: TermsConfig = Field(default_factory=TermsConfig)
     regex: RegexConfig = Field(default_factory=RegexConfig)

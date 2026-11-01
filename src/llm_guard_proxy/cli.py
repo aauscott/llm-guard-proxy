@@ -22,6 +22,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--policy",
         help="Bundled policy name (for example, permissive) or a YAML file path",
     )
+    parser.add_argument("--admin", action="store_true", help="Enable the local policy editor at /admin (single process)")
     parser.add_argument("--reload", action="store_true", help="Reload after source changes")
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return parser
@@ -31,6 +32,8 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     _set_if_present("GUARD_UPSTREAM_BASE_URL", args.upstream)
     _set_if_present("GUARD_POLICY_PATH", args.policy)
+    if args.admin:
+        os.environ["GUARD_ADMIN_ENABLED"] = "true"
     get_settings.cache_clear()
 
     uvicorn.run(

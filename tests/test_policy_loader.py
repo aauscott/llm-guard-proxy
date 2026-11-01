@@ -105,3 +105,30 @@ llama_guard:
     assert policy.llama_guard.base_url == "http://ollama:11434"
     assert policy.llama_guard.timeout_ms == 9000
     assert policy.llama_guard.severity == "medium"
+
+
+def test_legacy_policy_migrates_rules_and_terms_without_category_overrides(tmp_path, caplog):
+    import yaml
+    from llm_guard_proxy.models import GuardFinding
+    from llm_guard_proxy.policy.engine import decide
+
+    path = tmp_path / 'legacy.yaml'
+    path.write_text(yaml.safe_dump({
+        'name': 'legacy',
+        'terms': {'block': ['old block'], 'warn': ['old warn']},
+        'regex': {'block': [{'name': 'example', 'pattern': 'example',
+                            'category': 'secret_leak', 'severity': 'low'}]},
+        'categories': {'secret_leak': {'min_action': 'block'}},
+    }))
+    policy = load_policy(path)
+    assert policy.terms.high == ['old block']
+    assert policy.terms.medium == ['old warn']
+    assert policy.regex.rules[0].severity == 'low'
+    assert policy.regex.rules[0].category == 'secret_leak'
+    assert 'categories' not in policy.model_dump()
+    finding = GuardFinding(classifier='regex', category='secret_leak', severity='low',
+                           confidence=1, reason='Match')
+    assert decide(policy, [finding]).action == 'log'
+    assert 'category overrides are ignored' in caplog.text
+    path.write_text(yaml.safe_dump(policy.model_dump()))
+    assert load_policy(path) == policy

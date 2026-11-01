@@ -10,20 +10,17 @@ class RegexClassifier(Classifier):
 
     async def classify(self, item: GuardItem, config: dict) -> list[GuardFinding]:
         findings: list[GuardFinding] = []
-        regex_config = config.get("regex", {})
-        for bucket, action in (("block", "block"), ("warn", "warn")):
-            for rule in regex_config.get(bucket, []):
-                pattern = re.compile(rule["pattern"], re.IGNORECASE | re.MULTILINE)
-                match = pattern.search(item.text)
-                if match:
-                    findings.append(GuardFinding(
-                        classifier=self.name,
-                        category=rule["category"],
-                        severity=rule["severity"],
-                        confidence=1.0,
-                        action_hint=action,
-                        matched=match.group(0)[:160],
-                        reason=f"Regex rule {rule['name']} matched.",
-                        metadata={"rule": rule["name"]},
-                    ))
+        for rule in config.get("regex", {}).get("rules", []):
+            pattern = re.compile(rule["pattern"], re.IGNORECASE | re.MULTILINE)
+            match = pattern.search(item.text)
+            if match:
+                findings.append(GuardFinding(
+                    classifier=self.name,
+                    category=rule.get("category", "custom_pattern"),
+                    severity=rule["severity"],
+                    confidence=1.0,
+                    matched=match.group(0)[:160],
+                    reason=f"Regex rule {rule['name']} matched.",
+                    metadata={"rule": rule["name"]},
+                ))
         return findings

@@ -31,7 +31,6 @@ class UrlObfuscationClassifier(Classifier):
                     category="indirect_prompt_injection",
                     severity="medium",
                     confidence=0.72,
-                    action_hint="warn",
                     matched=decoded[:160],
                     reason="Obfuscated content decoded to suspicious text.",
                 ))

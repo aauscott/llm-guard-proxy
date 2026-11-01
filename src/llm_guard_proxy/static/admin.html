@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Policy settings · LLM Guard</title><link rel="stylesheet" href="/admin/assets/admin.css"><script src="/admin/assets/admin.js" defer></script></head>
+<body>
+<header><strong>LLM Guard</strong><span>Proxy settings</span></header>
+<main>
+<div class="heading"><div><h1>Policy settings</h1><p>Choose what the proxy checks and how it responds.</p></div><button class="primary" id="save" type="submit" form="editor" disabled>Save and apply</button></div>
+<p id="status" role="status" aria-live="polite">Loading policy…</p>
+<form id="editor" hidden>
+<section class="starter"><label for="template">Start from</label><div class="inline"><select id="template"><option value="">Choose a template</option><option value="new">Blank policy</option></select><button id="use-template" type="button">Use template</button><button id="discard" type="button">Discard changes</button></div><p>Templates replace this draft. Changes take effect only after saving.</p></section>
+<section><h2>General</h2><div class="columns"><label>Policy name<input id="name" required></label><label>If a classifier fails<select id="mode"><option value="fail_open">Allow the request</option><option value="fail_closed">Block the request</option></select></label></div><label>Description<input id="description"></label><label>Response when blocked<textarea id="response" rows="2"></textarea></label></section>
+<section><h2>Severity actions</h2><p>Choose an action for each severity. All classifiers and custom rules use this mapping; the strongest resulting action wins. Warnings pass through and are recorded in audit logs. Redact and review currently only label the audit decision.</p><div class="columns four" id="actions"></div></section>
+<section><h2>Classifiers</h2><p>Check user messages, model responses, or both. Model-based checks need a running guard service.</p><div class="table-wrap"><table><thead><tr><th scope="col">Classifier</th><th scope="col">Input</th><th scope="col">Output</th></tr></thead><tbody id="classifiers"></tbody></table></div><p>Tool-stage settings from your policy are preserved. This proxy currently checks input and output only.</p></section>
+<section><details><summary>Advanced settings</summary><p>Existing settings are retained when you switch templates or save an unchanged field.</p><div id="advanced" class="columns"></div></details></section>
+<p id="destination"></p>
+</form>
+</main>
+</body></html>

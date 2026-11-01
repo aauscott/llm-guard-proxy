@@ -9,6 +9,8 @@ class Settings(BaseSettings):
         default="permissive",
         validation_alias=AliasChoices("GUARD_POLICY_PATH", "policy_path"),
     )
+    admin_enabled: bool = Field(default=False, validation_alias=AliasChoices("GUARD_ADMIN_ENABLED", "admin_enabled"))
+    admin_policy_path: str = Field(default="policies/admin.yaml", validation_alias=AliasChoices("GUARD_ADMIN_POLICY_PATH", "admin_policy_path"))
     upstream_base_url: str = Field(
         default="http://localhost:11434",
         validation_alias=AliasChoices(

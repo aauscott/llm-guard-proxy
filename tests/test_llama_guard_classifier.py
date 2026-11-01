@@ -53,7 +53,7 @@ async def test_unsafe_verdict_maps_hazard_categories(monkeypatch) -> None:
 
     assert [finding.category for finding in findings] == ["violent_crimes", "self_harm"]
     assert [finding.metadata["hazard_code"] for finding in findings] == ["S1", "S11"]
-    assert all(finding.action_hint == "block" for finding in findings)
+    assert all(finding.severity == "high" for finding in findings)
 
 
 async def test_output_sends_prompt_and_response_context(monkeypatch) -> None:

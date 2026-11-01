@@ -73,7 +73,6 @@ async def _run_classifier(name: str, coroutine: Any, timeout: float, policy: Pol
                 category="classifier_error",
                 severity="critical",
                 confidence=1.0,
-                action_hint="block",
                 reason=f"Classifier {name} failed or timed out.",
                 metadata={"error_type": type(exc).__name__},
             )]

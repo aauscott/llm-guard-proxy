@@ -27,7 +27,6 @@ class SecretsClassifier(Classifier):
                     category="secret_leak",
                     severity=severity,
                     confidence=0.95,
-                    action_hint="block",
                     matched=_safe_match(match.group(0)),
                     reason=f"Secret-like value detected by {name}.",
                     metadata={"rule": name},

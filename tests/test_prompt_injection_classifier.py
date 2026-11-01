@@ -18,7 +18,6 @@ async def test_prompt_injection_detects_instruction_override() -> None:
 
     assert findings
     assert any(finding.category == "prompt_injection" for finding in findings)
-    assert all(finding.action_hint is None for finding in findings)
 
 
 async def test_prompt_injection_allows_benign_prompt_question() -> None:

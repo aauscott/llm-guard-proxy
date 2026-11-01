@@ -15,7 +15,7 @@ from llm_guard_proxy.policy.loader import classifier_config, load_policy
 
 
 @respx.mock
-async def test_http_unsafe_blocks_even_when_high_severity_only_warns():
+async def test_http_unsafe_uses_severity_mapping():
     route = respx.post("http://guard.test/classify").respond(200, json={
         "verdict": "unsafe", "categories": ["S5", "S10"],
     })
@@ -24,8 +24,9 @@ async def test_http_unsafe_blocks_even_when_high_severity_only_warns():
     policy.llama_guard.provider = "http"
     policy.llama_guard.base_url = "http://guard.test"
     result = await run_guard(GuardItem(request_id="r", stage="input", text="test"), policy, classifier_config(policy))
-    assert result.decision.blocked
-    assert result.decision.blocked_categories == ["defamation", "hate"]
+    assert not result.decision.blocked
+    assert result.decision.action == "warn"
+    assert [f.category for f in result.decision.findings] == ["defamation", "hate"]
     assert json.loads(route.calls.last.request.content) == {"messages": [{"role": "user", "content": "test"}]}
 
 

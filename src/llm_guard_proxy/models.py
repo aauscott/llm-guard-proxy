@@ -55,7 +55,6 @@ class GuardFinding(BaseModel):
     category: str
     severity: Severity
     confidence: float = Field(ge=0.0, le=1.0)
-    action_hint: Action | None = None
     matched: str | None = None
     reason: str
     metadata: dict[str, Any] = Field(default_factory=dict)

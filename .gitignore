@@ -17,3 +17,6 @@ dist/
 /.webui_secret_key
 
 .venv-guard/
+
+# Local policy editor settings
+policies/admin.yaml

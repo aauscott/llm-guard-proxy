@@ -57,7 +57,7 @@ Issues = "https://github.com/aauscott/llm-guard-proxy/issues"
 where = ["src"]
 
 [tool.setuptools.package-data]
-llm_guard_proxy = ["policies/*.yaml"]
+llm_guard_proxy = ["policies/*.yaml", "static/*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

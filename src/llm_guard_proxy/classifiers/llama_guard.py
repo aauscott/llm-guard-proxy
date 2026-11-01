@@ -110,7 +110,6 @@ def _findings_from_verdict(
             classifier="llama_guard",
             category=HAZARD_CATEGORIES.get(code, "unsafe_content"),
             severity=severity,
-            action_hint="block",
             confidence=1.0,
             reason=f"Llama Guard classified the {code} content category as unsafe.",
             metadata={

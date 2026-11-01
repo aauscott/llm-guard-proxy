@@ -102,7 +102,7 @@ chat("Write a short poem about databases.")
 Now send something that the default policy blocks before it reaches the model:
 
 ```python
-chat('Here is my test key: API_KEY="1234567890abcdef"')
+chat('Here is a test header: -----BEGIN PRIVATE KEY-----')
 ```
 
 Expected response:
@@ -163,7 +163,7 @@ Four starter policies ship with the package:
 
 The source files live in [`src/llm_guard_proxy/policies`](src/llm_guard_proxy/policies). Copy one, edit it, and pass its path with `--policy`.
 
-A policy selects classifiers for each stage and maps finding severity or category to an action:
+A policy selects classifiers for each stage and maps finding severity to an action:
 
 ```yaml
 name: example
@@ -184,11 +184,66 @@ actions:
 
 Actions are ranked from `allow` through `log`, `warn`, `redact`, `review`, and `block`. The current proxy only changes the response for `block`; the other actions are recorded in audit logs for future workflows.
 
+### Local policy editor
+
+Start the proxy with the built-in settings page:
+
+```bash
+llm-guard-proxy --admin
+```
+
+Open [Policy settings](http://127.0.0.1:8000/admin). Choose a bundled template
+(permissive, school, enterprise, or coding agent), or start with a blank policy.
+Set the severity-to-action mapping, toggle input/output classifiers, and add terms
+and pattern rules with an assigned severity. Terms and patterns are collapsible
+and remain editable even when their classifier is disabled. Enabling **Model-based safety check**
+for input or output reveals the Ollama / HTTP guard service connection settings.
+Disabling both hides the settings without clearing them. Model and keep-alive fields
+are shown only for Ollama. General advanced settings include timeouts, confidence
+thresholds, and prompt logging.
+
+**Save and apply** validates the draft, saves it to `policies/admin.yaml`, and
+uses it for new requests immediately. In-flight requests keep their original
+policy. Bundled templates and the original `--policy` file are not modified.
+The saved editor policy takes precedence on subsequent starts with `--admin`;
+without the editor, `--policy` / `GUARD_POLICY_PATH` works as before. The editor's
+classifier timeout takes precedence over `GUARD_CLASSIFIER_TIMEOUT_MS` while
+admin mode is enabled.
+
+You can also set `GUARD_ADMIN_ENABLED=true`. Set `GUARD_ADMIN_POLICY_PATH` to
+choose a different saved-policy location (relative paths use the working directory).
+Use a single server process: live policy changes are not synchronized across workers.
+This first version is for trusted users on the same computer, without accounts or
+roles. It checks loopback clients, local hostnames, and same-origin writes. Keep it
+bound to localhost; do not publish `/admin` through a reverse proxy.
+
+Warnings are audit decisions and do not block or show chat dialogs. `redact` and
+`review` also currently pass content through. Each finding uses its severity action; the strongest resulting action wins.
+Categories remain descriptive labels and do not override actions. Classifier
+failures still block when the failure mode is `fail_closed`, independently of
+content severity. Confidence thresholds still filter actions after severity mapping.
+Tool-stage settings are preserved, but chat requests only run input/output checks.
+
+#### Existing policy files
+
+The loader accepts the old format: `terms.block` becomes `terms.high`,
+`terms.warn` becomes `terms.medium`, and `regex.block` / `regex.warn` merge into
+`regex.rules`, retaining each rule's severity. Category action overrides are
+ignored. Saving in the editor writes the new format. Review your severity mapping:
+findings that previously forced a block (including secrets and Llama Guard) now
+follow that mapping. The permissive template maps High to Warn and Medium to Log.
+
+New term lists are `critical`, `high`, `medium`, and `low`. Each entry under
+`regex.rules` needs a `name`, `pattern`, and `severity`; a descriptive category
+may be retained internally but is not needed in the editor.
+
+
 ### Optional Llama Guard
 
 Llama Guard runs alongside the rule classifiers. Each stage schedules all enabled
 checks concurrently and waits for their results or timeouts before deciding.
-Every `unsafe` verdict blocks, even if the policy maps `high` severity to `warn`.
+An `unsafe` verdict uses the configured Llama Guard severity and the policy action
+for that severity. For example, High → Warn allows it through with a warning decision.
 The blocked chat response includes the detected category, for example
 `Llama Guard: hate (S10).` This works with streaming and non-streaming clients.
 
@@ -261,7 +316,8 @@ does not stop the guard service; use Ctrl+C in its terminal.
 
 `mode: fail_open` logs classifier errors/timeouts and lets other checks decide.
 `mode: fail_closed` blocks on classifier errors, including an unavailable or busy
-guard service. Unsafe verdicts block under either mode. The 30-second timeout is
+guard service. Valid unsafe verdicts follow the severity mapping under either mode.
+The 30-second timeout is
 a starting value; CPU inference or long conversations may require more time.
 
 The HTTP contract is `POST /classify` with
